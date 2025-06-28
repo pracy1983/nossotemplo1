@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Search, Shield, ShieldCheck, Save, Eye, Filter, User, Users, Crown, AlertTriangle, X, Edit3, Trash2 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { Student, FilterUnit, FilterRole, UserRole } from '../../types';
@@ -237,12 +237,9 @@ const ManageAdmins: React.FC = () => {
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Permissões:</h4>
                 <ul className="text-xs text-gray-400 space-y-1">
-                  {permissions.slice(0, 3).map((permission, index) => (
+                  {permissions.map((permission, index) => (
                     <li key={index}>• {permission}</li>
                   ))}
-                  {permissions.length > 3 && (
-                    <li className="text-gray-500">• +{permissions.length - 3} mais...</li>
-                  )}
                 </ul>
               </div>
             </div>
