@@ -61,6 +61,7 @@ const dbEventToEvent = (dbEvent: DatabaseEvent): Event => ({
   description: dbEvent.description || '',
   location: dbEvent.location,
   unit: dbEvent.unit,
+  photo: dbEvent.photo, // Include photo field
   attendees: []
 });
 
@@ -72,6 +73,7 @@ const eventToDbEvent = (event: Partial<Event>): Partial<DatabaseEvent> => {
   if (event.description !== undefined) dbData.description = event.description || null;
   if (event.location !== undefined) dbData.location = event.location;
   if (event.unit !== undefined) dbData.unit = event.unit;
+  if (event.photo !== undefined) dbData.photo = event.photo || null; // Include photo field
   return dbData;
 };
 

@@ -68,7 +68,8 @@ export interface DatabaseEvent {
   time: string;
   description?: string;
   location: string;
-  unit: 'SP' | 'BH';
+  unit: string;
+  photo?: string; // New field for event photo
   created_at: string;
   updated_at: string;
 }

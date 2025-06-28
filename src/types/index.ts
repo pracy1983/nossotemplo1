@@ -32,6 +32,7 @@ export interface Event {
   description: string;
   location: string;
   unit: string; // Changed to string to support dynamic temples
+  photo?: string; // New field for event photo
   attendees: string[];
 }
 
