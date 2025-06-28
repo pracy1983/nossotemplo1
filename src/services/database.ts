@@ -370,10 +370,16 @@ export const getTemples = async (): Promise<Temple[]> => {
     return data.map(temple => ({
       id: temple.id,
       photo: temple.photo,
+      logo: temple.logo,
       name: temple.name,
       city: temple.city,
       abbreviation: temple.abbreviation,
       address: temple.address,
+      street: temple.street,
+      number: temple.number,
+      neighborhood: temple.neighborhood,
+      zipCode: temple.zip_code,
+      state: temple.state,
       founders: temple.founders || [],
       isActive: temple.is_active,
       createdAt: temple.created_at,
@@ -392,10 +398,16 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
       .insert({
         id: temple.id,
         photo: temple.photo,
+        logo: temple.logo,
         name: temple.name,
         city: temple.city,
         abbreviation: temple.abbreviation,
         address: temple.address,
+        street: temple.street,
+        number: temple.number,
+        neighborhood: temple.neighborhood,
+        zip_code: temple.zipCode,
+        state: temple.state,
         founders: temple.founders,
         is_active: temple.isActive,
         created_at: temple.createdAt,
@@ -412,10 +424,16 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
     return {
       id: data.id,
       photo: data.photo,
+      logo: data.logo,
       name: data.name,
       city: data.city,
       abbreviation: data.abbreviation,
       address: data.address,
+      street: data.street,
+      number: data.number,
+      neighborhood: data.neighborhood,
+      zipCode: data.zip_code,
+      state: data.state,
       founders: data.founders || [],
       isActive: data.is_active,
       createdAt: data.created_at,
@@ -431,10 +449,16 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
   try {
     const dbUpdates: any = {};
     if (updates.photo !== undefined) dbUpdates.photo = updates.photo;
+    if (updates.logo !== undefined) dbUpdates.logo = updates.logo;
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.city !== undefined) dbUpdates.city = updates.city;
     if (updates.abbreviation !== undefined) dbUpdates.abbreviation = updates.abbreviation;
     if (updates.address !== undefined) dbUpdates.address = updates.address;
+    if (updates.street !== undefined) dbUpdates.street = updates.street;
+    if (updates.number !== undefined) dbUpdates.number = updates.number;
+    if (updates.neighborhood !== undefined) dbUpdates.neighborhood = updates.neighborhood;
+    if (updates.zipCode !== undefined) dbUpdates.zip_code = updates.zipCode;
+    if (updates.state !== undefined) dbUpdates.state = updates.state;
     if (updates.founders !== undefined) dbUpdates.founders = updates.founders;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
@@ -454,10 +478,16 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
     return {
       id: data.id,
       photo: data.photo,
+      logo: data.logo,
       name: data.name,
       city: data.city,
       abbreviation: data.abbreviation,
       address: data.address,
+      street: data.street,
+      number: data.number,
+      neighborhood: data.neighborhood,
+      zipCode: data.zip_code,
+      state: data.state,
       founders: data.founders || [],
       isActive: data.is_active,
       createdAt: data.created_at,

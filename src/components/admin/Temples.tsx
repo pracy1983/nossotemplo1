@@ -13,15 +13,20 @@ const Temples: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Temple>>({
-    name: '',
     city: '',
     abbreviation: '',
-    address: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    zipCode: '',
+    state: '',
     founders: [],
     isActive: true
   });
   const [photo, setPhoto] = useState<string>('');
+  const [logo, setLogo] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
 
   // Filter temples based on search
   const filteredTemples = temples.filter(temple =>
@@ -35,10 +40,6 @@ const Temples: React.FC = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.name?.trim()) {
-      newErrors.name = 'Nome do templo é obrigatório';
-    }
 
     if (!formData.city?.trim()) {
       newErrors.city = 'Cidade é obrigatória';
@@ -59,12 +60,82 @@ const Temples: React.FC = () => {
       }
     }
 
-    if (!formData.address?.trim()) {
-      newErrors.address = 'Endereço é obrigatório';
+    if (!formData.street?.trim()) {
+      newErrors.street = 'Rua é obrigatória';
+    }
+
+    if (!formData.number?.trim()) {
+      newErrors.number = 'Número é obrigatório';
+    }
+
+    if (!formData.neighborhood?.trim()) {
+      newErrors.neighborhood = 'Bairro é obrigatório';
+    }
+
+    if (!formData.zipCode?.trim()) {
+      newErrors.zipCode = 'CEP é obrigatório';
+    }
+
+    if (!formData.state?.trim()) {
+      newErrors.state = 'Estado é obrigatório';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const searchCep = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, '');
+    
+    if (cleanCep.length !== 8) {
+      setErrors(prev => ({ ...prev, zipCode: 'CEP deve ter 8 dígitos' }));
+      return;
+    }
+
+    setIsLoadingCep(true);
+    setErrors(prev => ({ ...prev, zipCode: '' }));
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        setErrors(prev => ({ ...prev, zipCode: 'CEP não encontrado' }));
+        return;
+      }
+
+      // Auto-fill address fields
+      setFormData(prev => ({
+        ...prev,
+        street: data.logradouro || prev.street,
+        neighborhood: data.bairro || prev.neighborhood,
+        city: data.localidade || prev.city,
+        state: data.uf || prev.state,
+        zipCode: cleanCep
+      }));
+
+    } catch (error) {
+      console.error('Error fetching CEP:', error);
+      setErrors(prev => ({ ...prev, zipCode: 'Erro ao buscar CEP' }));
+    } finally {
+      setIsLoadingCep(false);
+    }
+  };
+
+  const formatCep = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '');
+    return cleanValue.replace(/(\d{5})(\d{3})/, '$1-$2');
+  };
+
+  const handleCepChange = (value: string) => {
+    const formattedCep = formatCep(value);
+    setFormData(prev => ({ ...prev, zipCode: formattedCep }));
+    
+    // Auto-search when CEP is complete
+    const cleanCep = value.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      searchCep(cleanCep);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,13 +146,25 @@ const Temples: React.FC = () => {
     setIsSaving(true);
     
     try {
+      // Generate temple name from abbreviation
+      const templeName = `Templo ${formData.abbreviation!.toUpperCase()}`;
+      
+      // Build full address
+      const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, CEP: ${formData.zipCode}`;
+
       const templeData: Temple = {
         id: formData.id || generateId(),
         photo,
-        name: formData.name!,
+        logo,
+        name: templeName,
         city: formData.city!,
         abbreviation: formData.abbreviation!.toUpperCase(),
-        address: formData.address!,
+        address: fullAddress,
+        street: formData.street!,
+        number: formData.number!,
+        neighborhood: formData.neighborhood!,
+        zipCode: formData.zipCode!,
+        state: formData.state!,
         founders: formData.founders || [],
         isActive: formData.isActive ?? true,
         createdAt: formData.createdAt || new Date().toISOString(),
@@ -100,14 +183,18 @@ const Temples: React.FC = () => {
 
       // Reset form
       setFormData({
-        name: '',
         city: '',
         abbreviation: '',
-        address: '',
+        street: '',
+        number: '',
+        neighborhood: '',
+        zipCode: '',
+        state: '',
         founders: [],
         isActive: true
       });
       setPhoto('');
+      setLogo('');
       setIsEditing(false);
       setErrors({});
     } catch (error: any) {
@@ -120,8 +207,16 @@ const Temples: React.FC = () => {
 
   const handleEdit = (temple: Temple) => {
     setSelectedTemple(temple);
-    setFormData(temple);
+    setFormData({
+      ...temple,
+      street: temple.street || '',
+      number: temple.number || '',
+      neighborhood: temple.neighborhood || '',
+      zipCode: temple.zipCode || '',
+      state: temple.state || ''
+    });
     setPhoto(temple.photo || '');
+    setLogo(temple.logo || '');
     setIsEditing(true);
     setErrors({});
   };
@@ -154,6 +249,17 @@ const Temples: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setPhoto(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogo(e.target?.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -229,12 +335,12 @@ const Temples: React.FC = () => {
           
           return (
             <div key={temple.id} className="bg-gray-900 rounded-xl p-6 border border-gray-800 hover:border-red-600 transition-colors">
-              {/* Temple Photo */}
+              {/* Temple Logo/Photo */}
               <div className="relative mb-4">
                 <img
-                  src={temple.photo || 'https://images.pexels.com/photos/161758/governor-s-mansion-montgomery-alabama-grand-staircase-161758.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop'}
+                  src={temple.logo || temple.photo || 'https://images.pexels.com/photos/161758/governor-s-mansion-montgomery-alabama-grand-staircase-161758.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop'}
                   alt={temple.name}
-                  className="w-full h-48 object-cover rounded-lg"
+                  className={`w-full h-48 object-cover rounded-lg ${temple.logo ? 'object-contain bg-gray-800' : ''}`}
                 />
                 <div className="absolute top-2 right-2">
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -337,44 +443,80 @@ const Temples: React.FC = () => {
           setShowAddModal(false);
           setIsEditing(false);
           setFormData({
-            name: '',
             city: '',
             abbreviation: '',
-            address: '',
+            street: '',
+            number: '',
+            neighborhood: '',
+            zipCode: '',
+            state: '',
             founders: [],
             isActive: true
           });
           setPhoto('');
+          setLogo('');
           setErrors({});
         }}
         title={isEditing ? 'Editar Templo' : 'Cadastrar Templo'}
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Photo Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Foto da Fachada
-            </label>
-            <div className="relative">
-              <div className="w-full h-48 bg-gray-800 rounded-lg overflow-hidden border-2 border-dashed border-gray-600">
-                {photo ? (
-                  <img src={photo} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-400 text-sm">Clique para fazer upload</p>
+          {/* Photo and Logo Upload */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Logo Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Logo do Templo *
+              </label>
+              <div className="relative">
+                <div className="w-full h-48 bg-gray-800 rounded-lg overflow-hidden border-2 border-dashed border-gray-600">
+                  {logo ? (
+                    <img src={logo} alt="Logo Preview" className="w-full h-full object-contain bg-gray-800" />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-400 text-sm">Logo Quadrado</p>
+                        <p className="text-gray-500 text-xs">Personalizado da cidade</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
               </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
+            </div>
+
+            {/* Photo Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Foto da Fachada
+              </label>
+              <div className="relative">
+                <div className="w-full h-48 bg-gray-800 rounded-lg overflow-hidden border-2 border-dashed border-gray-600">
+                  {photo ? (
+                    <img src={photo} alt="Photo Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-400 text-sm">Foto da Fachada</p>
+                        <p className="text-gray-500 text-xs">Opcional</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </div>
             </div>
           </div>
 
@@ -382,16 +524,20 @@ const Temples: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Nome do Templo *
+                Sigla *
               </label>
               <input
                 type="text"
-                value={formData.name || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                value={formData.abbreviation || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, abbreviation: e.target.value.toUpperCase() }))}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
-                placeholder="Ex: Templo da Luz Divina"
+                placeholder="Ex: SP, BH, CP"
+                maxLength={5}
               />
-              {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
+              {errors.abbreviation && <p className="text-red-400 text-sm mt-1">{errors.abbreviation}</p>}
+              <p className="text-gray-400 text-xs mt-1">
+                Nome será: Templo {formData.abbreviation || '[Sigla]'}
+              </p>
             </div>
 
             <div>
@@ -409,36 +555,98 @@ const Temples: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Sigla *
-            </label>
-            <input
-              type="text"
-              value={formData.abbreviation || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, abbreviation: e.target.value.toUpperCase() }))}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
-              placeholder="Ex: SP, BH, CP"
-              maxLength={5}
-            />
-            {errors.abbreviation && <p className="text-red-400 text-sm mt-1">{errors.abbreviation}</p>}
-            <p className="text-gray-400 text-xs mt-1">
-              Esta sigla aparecerá nas listas de templos (máximo 5 caracteres)
-            </p>
-          </div>
+          {/* Address Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Endereço</h3>
+            
+            {/* CEP */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                CEP *
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.zipCode || ''}
+                  onChange={(e) => handleCepChange(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                {isLoadingCep && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                  </div>
+                )}
+              </div>
+              {errors.zipCode && <p className="text-red-400 text-sm mt-1">{errors.zipCode}</p>}
+              <p className="text-gray-400 text-xs mt-1">
+                Digite o CEP para preenchimento automático
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Endereço Completo *
-            </label>
-            <textarea
-              value={formData.address || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-              rows={3}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
-              placeholder="Rua, número, bairro, CEP, cidade, estado"
-            />
-            {errors.address && <p className="text-red-400 text-sm mt-1">{errors.address}</p>}
+            {/* Street and Number */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Rua *
+                </label>
+                <input
+                  type="text"
+                  value={formData.street || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                  placeholder="Nome da rua"
+                />
+                {errors.street && <p className="text-red-400 text-sm mt-1">{errors.street}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Número *
+                </label>
+                <input
+                  type="text"
+                  value={formData.number || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                  placeholder="123"
+                />
+                {errors.number && <p className="text-red-400 text-sm mt-1">{errors.number}</p>}
+              </div>
+            </div>
+
+            {/* Neighborhood and State */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Bairro *
+                </label>
+                <input
+                  type="text"
+                  value={formData.neighborhood || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                  placeholder="Nome do bairro"
+                />
+                {errors.neighborhood && <p className="text-red-400 text-sm mt-1">{errors.neighborhood}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Estado *
+                </label>
+                <input
+                  type="text"
+                  value={formData.state || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                  placeholder="SP"
+                  maxLength={2}
+                />
+                {errors.state && <p className="text-red-400 text-sm mt-1">{errors.state}</p>}
+              </div>
+            </div>
           </div>
 
           {/* Founders Selection */}
@@ -502,14 +710,18 @@ const Temples: React.FC = () => {
                 setShowAddModal(false);
                 setIsEditing(false);
                 setFormData({
-                  name: '',
                   city: '',
                   abbreviation: '',
-                  address: '',
+                  street: '',
+                  number: '',
+                  neighborhood: '',
+                  zipCode: '',
+                  state: '',
                   founders: [],
                   isActive: true
                 });
                 setPhoto('');
+                setLogo('');
                 setErrors({});
               }}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
@@ -537,13 +749,29 @@ const Temples: React.FC = () => {
           size="lg"
         >
           <div className="space-y-6">
-            {/* Temple Photo */}
-            <div>
-              <img
-                src={selectedTemple.photo || 'https://images.pexels.com/photos/161758/governor-s-mansion-montgomery-alabama-grand-staircase-161758.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop'}
-                alt={selectedTemple.name}
-                className="w-full h-64 object-cover rounded-lg"
-              />
+            {/* Temple Images */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedTemple.logo && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Logo do Templo</h4>
+                  <img
+                    src={selectedTemple.logo}
+                    alt={`Logo ${selectedTemple.name}`}
+                    className="w-full h-48 object-contain bg-gray-800 rounded-lg"
+                  />
+                </div>
+              )}
+              
+              {selectedTemple.photo && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Foto da Fachada</h4>
+                  <img
+                    src={selectedTemple.photo}
+                    alt={`Fachada ${selectedTemple.name}`}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Basic Information */}

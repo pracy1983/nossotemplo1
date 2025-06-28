@@ -38,10 +38,17 @@ export interface Event {
 export interface Temple {
   id: string;
   photo?: string;
+  logo?: string; // New field for temple logo
   name: string;
   city: string;
   abbreviation: string; // e.g., "SP", "BH", "CP"
   address: string;
+  // New address fields for better organization
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  zipCode?: string;
+  state?: string;
   founders: string[]; // Array of student IDs who are founders
   isActive: boolean;
   createdAt: string;
