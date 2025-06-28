@@ -85,6 +85,22 @@ const dbAttendanceToAttendance = (dbAttendance: DatabaseAttendanceRecord): Atten
   eventId: dbAttendance.event_id || undefined
 });
 
+// Helper function to safely parse founders field
+const parseFounders = (founders: any): string[] => {
+  if (!founders) return [];
+  if (Array.isArray(founders)) return founders;
+  if (typeof founders === 'string') {
+    try {
+      const parsed = JSON.parse(founders);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // If JSON parsing fails, treat as a single founder name
+      return [founders];
+    }
+  }
+  return [];
+};
+
 // Authentication
 export const authenticateUser = async (email: string, password: string): Promise<User> => {
   try {
@@ -384,7 +400,7 @@ export const getTemples = async (): Promise<Temple[]> => {
       zipCode: temple.zip_code,
       state: temple.state,
       observations: temple.observations,
-      founders: temple.founders || [],
+      founders: parseFounders(temple.founders),
       isActive: temple.is_active,
       createdAt: temple.created_at,
       updatedAt: temple.updated_at
@@ -413,7 +429,7 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
         zip_code: temple.zipCode,
         state: temple.state,
         observations: temple.observations,
-        founders: temple.founders,
+        founders: JSON.stringify(temple.founders),
         is_active: temple.isActive
       })
       .select()
@@ -439,7 +455,7 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
       zipCode: data.zip_code,
       state: data.state,
       observations: data.observations,
-      founders: data.founders || [],
+      founders: parseFounders(data.founders),
       isActive: data.is_active,
       createdAt: data.created_at,
       updatedAt: data.updated_at
@@ -466,7 +482,7 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
     if (updates.zipCode !== undefined) dbUpdates.zip_code = updates.zipCode;
     if (updates.state !== undefined) dbUpdates.state = updates.state;
     if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
-    if (updates.founders !== undefined) dbUpdates.founders = updates.founders;
+    if (updates.founders !== undefined) dbUpdates.founders = JSON.stringify(updates.founders);
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
 
@@ -497,7 +513,7 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
       zipCode: data.zip_code,
       state: data.state,
       observations: data.observations,
-      founders: data.founders || [],
+      founders: parseFounders(data.founders),
       isActive: data.is_active,
       createdAt: data.created_at,
       updatedAt: data.updated_at
