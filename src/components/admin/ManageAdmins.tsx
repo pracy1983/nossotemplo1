@@ -22,6 +22,18 @@ const ManageAdmins: React.FC = () => {
   // Get all students (including guests for admin management)
   const allUsers = students;
 
+  // Get current role (including pending changes)
+  const getCurrentRole = (student: Student): UserRole => {
+    if (roleChanges.hasOwnProperty(student.id)) {
+      return roleChanges[student.id];
+    }
+    
+    // Determine role based on current flags
+    if (student.isAdmin) return 'admin';
+    if (student.role === 'collaborator') return 'collaborator';
+    return 'student';
+  };
+
   // Filter students based on search and filters
   const filteredUsers = allUsers.filter(student => {
     const matchesSearch = student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -34,18 +46,6 @@ const ManageAdmins: React.FC = () => {
     
     return matchesSearch && matchesUnit && matchesRole;
   });
-
-  // Get current role (including pending changes)
-  const getCurrentRole = (student: Student): UserRole => {
-    if (roleChanges.hasOwnProperty(student.id)) {
-      return roleChanges[student.id];
-    }
-    
-    // Determine role based on current flags
-    if (student.isAdmin) return 'admin';
-    if (student.role === 'collaborator') return 'collaborator';
-    return 'student';
-  };
 
   // Handle role change
   const handleRoleChange = (studentId: string, newRole: UserRole) => {
