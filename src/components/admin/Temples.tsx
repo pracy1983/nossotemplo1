@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Search, Edit3, Trash2, Save, X, Upload, MapPin, Users, Calendar, Building, Crop } from 'lucide-react';
+import { Plus, Search, Edit3, Save, X, Upload, MapPin, Users, Calendar, Building, Crop } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Temple, Student } from '../../types';
@@ -278,31 +278,9 @@ const Temples: React.FC = () => {
     setErrors({});
   };
 
-  const handleDelete = async (temple: Temple) => {
-    if (!isAdmin) {
-      alert('Apenas administradores podem excluir templos.');
-      return;
-    }
-    
-    // Check if temple has students or events
-    const templeStudents = students.filter(s => s.unit === temple.abbreviation);
-    const templeEvents = events.filter(e => e.unit === temple.abbreviation);
-    
-    if (templeStudents.length > 0 || templeEvents.length > 0) {
-      alert(`Não é possível excluir este templo pois ele possui ${templeStudents.length} aluno(s) e ${templeEvents.length} evento(s) associados.`);
-      return;
-    }
-
-    if (confirm('Tem certeza que deseja excluir este templo?')) {
-      try {
-        await deleteTemple(temple.id!);
-        setSelectedTemple(null);
-        alert('Templo excluído com sucesso!');
-      } catch (error) {
-        console.error('Error deleting temple:', error);
-        alert('Erro ao excluir templo. Tente novamente.');
-      }
-    }
+  const handleTempleClick = (temple: Temple) => {
+    setSelectedTemple(temple);
+    setIsEditing(false);
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -590,7 +568,11 @@ const Temples: React.FC = () => {
           const stats = getTempleStats(temple);
           
           return (
-            <div key={temple.id} className="bg-gray-900 rounded-xl p-6 border border-gray-800 hover:border-red-600 transition-colors">
+            <div 
+              key={temple.id} 
+              className="bg-gray-900 rounded-xl p-6 border border-gray-800 hover:border-red-600 transition-colors cursor-pointer"
+              onClick={() => handleTempleClick(temple)}
+            >
               {/* Temple Photo */}
               <div className="relative mb-4">
                 <img
@@ -659,26 +641,16 @@ const Temples: React.FC = () => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-between pt-3">
-                  <button
-                    onClick={() => setSelectedTemple(temple)}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    Ver Detalhes
-                  </button>
-                  
+                <div className="flex items-center justify-end pt-3">
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => handleEdit(temple)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(temple);
+                      }}
                       className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-600/10 rounded-lg transition-colors"
                     >
                       <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(temple)}
-                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1282,6 +1254,13 @@ const Temples: React.FC = () => {
                         <div>
                           <p className="text-white font-medium">{founder.fullName}</p>
                           <p className="text-gray-400 text-sm">{founder.email}</p>
+                          <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${
+                            founder.isActive 
+                              ? 'bg-green-600/20 text-green-400' 
+                              : 'bg-red-600/20 text-red-400'
+                          }`}>
+                            {founder.isActive ? 'Ativo' : 'Inativo'}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1300,13 +1279,6 @@ const Temples: React.FC = () => {
               >
                 <Edit3 className="w-4 h-4" />
                 <span>Editar</span>
-              </button>
-              <button
-                onClick={() => handleDelete(selectedTemple)}
-                className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Excluir</span>
               </button>
             </div>
           </div>

@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Prevent text selection cursor on interactive elements */
+@layer base {
+  button,
+  .cursor-pointer,
+  [role="button"],
+  .hover\:bg-gray-800:hover,
+  .hover\:bg-gray-700:hover,
+  .hover\:bg-red-600:hover,
+  .hover\:border-red-600:hover,
+  .transition-colors,
+  .bg-gray-900,
+  .bg-gray-800,
+  .rounded-xl,
+  .rounded-lg {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+  
+  /* Allow text selection only on specific text elements */
+  p,
+  span:not(.cursor-pointer),
+  h1, h2, h3, h4, h5, h6,
+  .text-white,
+  .text-gray-300,
+  .text-gray-400 {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+  
+  /* Prevent selection on cards and interactive containers */
+  .bg-gray-900.rounded-xl,
+  .bg-gray-800.rounded-lg,
+  .hover\:border-red-600 {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+}
