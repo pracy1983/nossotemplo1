@@ -26,7 +26,7 @@ The application is failing because the `temples` table doesn't exist in your Sup
       - `city` (text, cidade)
       - `abbreviation` (text, abreviação como 'SP', 'BH')
       - `address` (text, endereço completo)
-      - `founders` (text, fundadores)
+      - `founders` (jsonb, fundadores como array)
       - `is_active` (boolean, se está ativo)
       - `created_at` (timestamp)
       - `updated_at` (timestamp)
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS temples (
   city text NOT NULL,
   abbreviation text NOT NULL UNIQUE,
   address text,
-  founders text,
+  founders jsonb DEFAULT '[]'::jsonb,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -90,9 +90,37 @@ END $$;
 
 -- Insert initial temple data
 INSERT INTO temples (name, city, abbreviation, address, founders, is_active) VALUES
-('Templo São Paulo', 'São Paulo', 'SP', 'Rua das Flores, 123 - Centro, São Paulo - SP', 'João da Silva Santos, Paula Racy', true),
-('Templo Belo Horizonte', 'Belo Horizonte', 'BH', 'Av. Afonso Pena, 456 - Centro, Belo Horizonte - MG', 'Maria Santos Oliveira', true)
+('Templo São Paulo', 'São Paulo', 'SP', 'Rua das Flores, 123 - Centro, São Paulo - SP', '["João da Silva Santos", "Paula Racy"]'::jsonb, true),
+('Templo Belo Horizonte', 'Belo Horizonte', 'BH', 'Av. Afonso Pena, 456 - Centro, Belo Horizonte - MG', '["Maria Santos Oliveira"]'::jsonb, true)
 ON CONFLICT (abbreviation) DO NOTHING;
+
+-- If the table already exists with text founders column, update it
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'temples' AND column_name = 'founders' AND data_type = 'text'
+  ) THEN
+    -- First, update existing text data to jsonb format
+    UPDATE temples 
+    SET founders = CASE 
+      WHEN founders IS NULL OR founders = '' THEN '[]'::jsonb
+      ELSE jsonb_build_array(founders)
+    END
+    WHERE founders IS NULL OR founders = '' OR jsonb_typeof(founders::jsonb) != 'array';
+    
+    -- Then change the column type
+    ALTER TABLE temples ALTER COLUMN founders TYPE jsonb USING 
+      CASE 
+        WHEN founders IS NULL OR founders = '' THEN '[]'::jsonb
+        WHEN jsonb_typeof(founders::jsonb) = 'array' THEN founders::jsonb
+        ELSE jsonb_build_array(founders)
+      END;
+      
+    -- Set default value
+    ALTER TABLE temples ALTER COLUMN founders SET DEFAULT '[]'::jsonb;
+  END IF;
+END $$;
 ```
 
 4. **Run the query**
@@ -105,10 +133,17 @@ ON CONFLICT (abbreviation) DO NOTHING;
 
 ## What this does:
 
-- Creates the `temples` table with all required columns
+- Creates the `temples` table with `founders` as `jsonb` type (array format)
 - Sets up Row Level Security (RLS) policies
 - Adds the update trigger (if the function exists)
-- Inserts initial temple data
+- Inserts initial temple data with founders as JSON arrays
+- Includes migration logic to convert existing `text` founders column to `jsonb`
 - Uses `ON CONFLICT DO NOTHING` to prevent duplicate entries if run multiple times
 
-After running this SQL in your Supabase dashboard, your application should work correctly without the "relation does not exist" errors.
+## Important Notes:
+
+- The `founders` column is now stored as `jsonb` which allows it to be treated as an array in the frontend
+- Existing data will be automatically converted from text to array format
+- Empty or null founders will be converted to empty arrays `[]`
+
+After running this SQL in your Supabase dashboard, your application should work correctly without the "founders.map is not a function" errors.
