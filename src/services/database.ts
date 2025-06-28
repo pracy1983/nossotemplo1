@@ -377,9 +377,11 @@ export const getTemples = async (): Promise<Temple[]> => {
       address: temple.address,
       street: temple.street,
       number: temple.number,
+      complement: temple.complement,
       neighborhood: temple.neighborhood,
       zipCode: temple.zip_code,
       state: temple.state,
+      observations: temple.observations,
       founders: temple.founders || [],
       isActive: temple.is_active,
       createdAt: temple.created_at,
@@ -396,7 +398,6 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
     const { data, error } = await supabase
       .from('temples')
       .insert({
-        id: temple.id,
         photo: temple.photo,
         logo: temple.logo,
         name: temple.name,
@@ -405,13 +406,13 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
         address: temple.address,
         street: temple.street,
         number: temple.number,
+        complement: temple.complement,
         neighborhood: temple.neighborhood,
         zip_code: temple.zipCode,
         state: temple.state,
+        observations: temple.observations,
         founders: temple.founders,
-        is_active: temple.isActive,
-        created_at: temple.createdAt,
-        updated_at: temple.updatedAt
+        is_active: temple.isActive
       })
       .select()
       .single();
@@ -431,9 +432,11 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
       address: data.address,
       street: data.street,
       number: data.number,
+      complement: data.complement,
       neighborhood: data.neighborhood,
       zipCode: data.zip_code,
       state: data.state,
+      observations: data.observations,
       founders: data.founders || [],
       isActive: data.is_active,
       createdAt: data.created_at,
@@ -456,9 +459,11 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
     if (updates.address !== undefined) dbUpdates.address = updates.address;
     if (updates.street !== undefined) dbUpdates.street = updates.street;
     if (updates.number !== undefined) dbUpdates.number = updates.number;
+    if (updates.complement !== undefined) dbUpdates.complement = updates.complement;
     if (updates.neighborhood !== undefined) dbUpdates.neighborhood = updates.neighborhood;
     if (updates.zipCode !== undefined) dbUpdates.zip_code = updates.zipCode;
     if (updates.state !== undefined) dbUpdates.state = updates.state;
+    if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
     if (updates.founders !== undefined) dbUpdates.founders = updates.founders;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
@@ -485,9 +490,11 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
       address: data.address,
       street: data.street,
       number: data.number,
+      complement: data.complement,
       neighborhood: data.neighborhood,
       zipCode: data.zip_code,
       state: data.state,
+      observations: data.observations,
       founders: data.founders || [],
       isActive: data.is_active,
       createdAt: data.created_at,

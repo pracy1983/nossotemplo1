@@ -46,9 +46,11 @@ export interface Temple {
   // New address fields for better organization
   street?: string;
   number?: string;
+  complement?: string; // New field for address complement
   neighborhood?: string;
   zipCode?: string;
   state?: string;
+  observations?: string; // New field for observations
   founders: string[]; // Array of student IDs who are founders
   isActive: boolean;
   createdAt?: string; // Made optional

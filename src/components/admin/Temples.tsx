@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, Save, X, Upload, MapPin, Users, Calendar, Building } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Search, Edit3, Trash2, Save, X, Upload, MapPin, Users, Calendar, Building, Crop } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Temple, Student } from '../../types';
 import { validateEmail } from '../../utils/helpers';
 import Modal from '../common/Modal';
 
 const Temples: React.FC = () => {
   const { temples, students, events, addTemple, updateTemple, deleteTemple } = useData();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTemple, setSelectedTemple] = useState<Temple | null>(null);
@@ -20,6 +22,8 @@ const Temples: React.FC = () => {
     neighborhood: '',
     zipCode: '',
     state: '',
+    complement: '',
+    observations: '',
     founders: [],
     isActive: true
   });
@@ -27,6 +31,33 @@ const Temples: React.FC = () => {
   const [logo, setLogo] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoadingCep, setIsLoadingCep] = useState(false);
+  
+  // Logo crop modal states
+  const [showLogoCropModal, setShowLogoCropModal] = useState(false);
+  const [originalLogo, setOriginalLogo] = useState<string>('');
+  const [cropData, setCropData] = useState({
+    x: 50,
+    y: 50,
+    size: 200
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  
+  const logoImageRef = useRef<HTMLImageElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const finalCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Check if user is admin
+  const isAdmin = user?.isAdmin || false;
+
+  // Update preview whenever crop data changes
+  useEffect(() => {
+    if (showLogoCropModal && originalLogo) {
+      updateLogoPreview();
+    }
+  }, [cropData, showLogoCropModal, originalLogo]);
 
   // Filter temples based on search
   const filteredTemples = temples.filter(temple =>
@@ -141,6 +172,11 @@ const Temples: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!isAdmin) {
+      alert('Apenas administradores podem gerenciar templos.');
+      return;
+    }
+    
     if (!validateForm()) return;
 
     setIsSaving(true);
@@ -150,7 +186,15 @@ const Temples: React.FC = () => {
       const templeName = `Templo ${formData.abbreviation!.toUpperCase()}`;
       
       // Build full address
-      const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, CEP: ${formData.zipCode}`;
+      const addressParts = [
+        `${formData.street}, ${formData.number}`,
+        formData.complement && `- ${formData.complement}`,
+        `${formData.neighborhood}`,
+        `${formData.city} - ${formData.state}`,
+        `CEP: ${formData.zipCode}`
+      ].filter(Boolean);
+      
+      const fullAddress = addressParts.join(', ');
 
       const templeData: Temple = {
         photo,
@@ -161,9 +205,11 @@ const Temples: React.FC = () => {
         address: fullAddress,
         street: formData.street!,
         number: formData.number!,
+        complement: formData.complement,
         neighborhood: formData.neighborhood!,
         zipCode: formData.zipCode!,
         state: formData.state!,
+        observations: formData.observations,
         founders: formData.founders || [],
         isActive: formData.isActive ?? true
       };
@@ -192,6 +238,8 @@ const Temples: React.FC = () => {
         neighborhood: '',
         zipCode: '',
         state: '',
+        complement: '',
+        observations: '',
         founders: [],
         isActive: true
       });
@@ -208,6 +256,11 @@ const Temples: React.FC = () => {
   };
 
   const handleEdit = (temple: Temple) => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem editar templos.');
+      return;
+    }
+    
     setSelectedTemple(temple);
     setFormData({
       ...temple,
@@ -215,7 +268,9 @@ const Temples: React.FC = () => {
       number: temple.number || '',
       neighborhood: temple.neighborhood || '',
       zipCode: temple.zipCode || '',
-      state: temple.state || ''
+      state: temple.state || '',
+      complement: temple.complement || '',
+      observations: temple.observations || ''
     });
     setPhoto(temple.photo || '');
     setLogo(temple.logo || '');
@@ -224,6 +279,11 @@ const Temples: React.FC = () => {
   };
 
   const handleDelete = async (temple: Temple) => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem excluir templos.');
+      return;
+    }
+    
     // Check if temple has students or events
     const templeStudents = students.filter(s => s.unit === temple.abbreviation);
     const templeEvents = events.filter(e => e.unit === temple.abbreviation);
@@ -261,10 +321,187 @@ const Temples: React.FC = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setLogo(e.target?.result as string);
+        const imageUrl = e.target?.result as string;
+        setOriginalLogo(imageUrl);
+        setShowLogoCropModal(true);
+        
+        // Reset crop data for new image
+        setCropData({
+          x: 50,
+          y: 50,
+          size: 200
+        });
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleLogoImageLoad = () => {
+    if (logoImageRef.current) {
+      const { offsetWidth, offsetHeight } = logoImageRef.current;
+      setImageSize({ width: offsetWidth, height: offsetHeight });
+      
+      // Center the crop area and ensure it fits within bounds
+      const maxSize = Math.min(offsetWidth, offsetHeight) - 20;
+      const size = Math.min(200, maxSize);
+      
+      setCropData({
+        x: (offsetWidth - size) / 2,
+        y: (offsetHeight - size) / 2,
+        size
+      });
+    }
+  };
+
+  const constrainCropData = (newCropData: typeof cropData) => {
+    // Ensure crop area stays within image bounds
+    const maxX = Math.max(0, imageSize.width - newCropData.size);
+    const maxY = Math.max(0, imageSize.height - newCropData.size);
+    
+    return {
+      ...newCropData,
+      x: Math.max(0, Math.min(newCropData.x, maxX)),
+      y: Math.max(0, Math.min(newCropData.y, maxY)),
+      size: Math.min(newCropData.size, Math.min(imageSize.width, imageSize.height))
+    };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, action: 'drag' | 'resize') => {
+    e.preventDefault();
+    const rect = logoImageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (action === 'drag') {
+      setIsDragging(true);
+      setDragStart({ x: x - cropData.x, y: y - cropData.y });
+    } else {
+      setIsResizing(true);
+      setDragStart({ x, y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging && !isResizing) return;
+    
+    const rect = logoImageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (isDragging) {
+      const newX = x - dragStart.x;
+      const newY = y - dragStart.y;
+      
+      const constrainedData = constrainCropData({
+        ...cropData,
+        x: newX,
+        y: newY
+      });
+      
+      setCropData(constrainedData);
+    } else if (isResizing) {
+      const newSize = Math.max(50, Math.max(x - cropData.x, y - cropData.y));
+      
+      const constrainedData = constrainCropData({
+        ...cropData,
+        size: newSize
+      });
+      
+      setCropData(constrainedData);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsResizing(false);
+  };
+
+  const updateLogoPreview = () => {
+    if (!originalLogo || !previewCanvasRef.current) return;
+
+    const canvas = previewCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      // Set canvas size for preview (150x150)
+      canvas.width = 150;
+      canvas.height = 150;
+
+      // Calculate scale factors
+      const scaleX = img.naturalWidth / imageSize.width;
+      const scaleY = img.naturalHeight / imageSize.height;
+      
+      const sourceX = cropData.x * scaleX;
+      const sourceY = cropData.y * scaleY;
+      const sourceSize = cropData.size * Math.min(scaleX, scaleY);
+
+      // Clear canvas
+      ctx.clearRect(0, 0, 150, 150);
+
+      // Draw the cropped image
+      ctx.drawImage(
+        img,
+        sourceX,
+        sourceY,
+        sourceSize,
+        sourceSize,
+        0,
+        0,
+        150,
+        150
+      );
+    };
+    
+    img.src = originalLogo;
+  };
+
+  const applyLogoCrop = () => {
+    if (!originalLogo || !finalCanvasRef.current) return;
+
+    const canvas = finalCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      // Set canvas size to square (400x400)
+      canvas.width = 400;
+      canvas.height = 400;
+
+      // Calculate scale factors
+      const scaleX = img.naturalWidth / imageSize.width;
+      const scaleY = img.naturalHeight / imageSize.height;
+      
+      const sourceX = cropData.x * scaleX;
+      const sourceY = cropData.y * scaleY;
+      const sourceSize = cropData.size * Math.min(scaleX, scaleY);
+
+      // Draw the cropped image
+      ctx.drawImage(
+        img,
+        sourceX,
+        sourceY,
+        sourceSize,
+        sourceSize,
+        0,
+        0,
+        400,
+        400
+      );
+
+      // Convert canvas to data URL
+      const croppedLogo = canvas.toDataURL('image/jpeg', 0.8);
+      setLogo(croppedLogo);
+      setShowLogoCropModal(false);
+    };
+    
+    img.src = originalLogo;
   };
 
   const handleFounderToggle = (studentId: string) => {
@@ -297,6 +534,23 @@ const Temples: React.FC = () => {
       founders: founders.length
     };
   };
+
+  // Show access denied message for non-admins
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <Building className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-400 mb-2">
+            Acesso Restrito
+          </h3>
+          <p className="text-gray-500">
+            Apenas administradores podem gerenciar templos.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -337,13 +591,25 @@ const Temples: React.FC = () => {
           
           return (
             <div key={temple.id} className="bg-gray-900 rounded-xl p-6 border border-gray-800 hover:border-red-600 transition-colors">
-              {/* Temple Logo/Photo */}
+              {/* Temple Photo */}
               <div className="relative mb-4">
                 <img
-                  src={temple.logo || temple.photo || 'https://images.pexels.com/photos/161758/governor-s-mansion-montgomery-alabama-grand-staircase-161758.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop'}
+                  src={temple.photo || 'https://images.pexels.com/photos/161758/governor-s-mansion-montgomery-alabama-grand-staircase-161758.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop'}
                   alt={temple.name}
-                  className={`w-full h-48 object-cover rounded-lg ${temple.logo ? 'object-contain bg-gray-800' : ''}`}
+                  className="w-full h-48 object-cover rounded-lg"
                 />
+                
+                {/* Logo Circle in top-left corner */}
+                {temple.logo && (
+                  <div className="absolute top-2 left-2 w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg">
+                    <img
+                      src={temple.logo}
+                      alt={`Logo ${temple.name}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
                 <div className="absolute top-2 right-2">
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                     temple.isActive 
@@ -452,6 +718,8 @@ const Temples: React.FC = () => {
             neighborhood: '',
             zipCode: '',
             state: '',
+            complement: '',
+            observations: '',
             founders: [],
             isActive: true
           });
@@ -468,12 +736,12 @@ const Temples: React.FC = () => {
             {/* Logo Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Logo do Templo *
+                Logo do Templo * (Quadrado)
               </label>
               <div className="relative">
                 <div className="w-full h-48 bg-gray-800 rounded-lg overflow-hidden border-2 border-dashed border-gray-600">
                   {logo ? (
-                    <img src={logo} alt="Logo Preview" className="w-full h-full object-contain bg-gray-800" />
+                    <img src={logo} alt="Logo Preview" className="w-full h-full object-cover" />
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
@@ -491,6 +759,16 @@ const Temples: React.FC = () => {
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
               </div>
+              {logo && (
+                <button
+                  type="button"
+                  onClick={() => setShowLogoCropModal(true)}
+                  className="mt-2 flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors bg-red-600/10 hover:bg-red-600/20 px-3 py-2 rounded-lg border border-red-600/20"
+                >
+                  <Crop className="w-4 h-4" />
+                  <span>Editar e Cortar</span>
+                </button>
+              )}
             </div>
 
             {/* Photo Upload */}
@@ -618,8 +896,8 @@ const Temples: React.FC = () => {
               </div>
             </div>
 
-            {/* Neighborhood and State */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Neighborhood, State and Complement */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Bairro *
@@ -648,6 +926,33 @@ const Temples: React.FC = () => {
                 />
                 {errors.state && <p className="text-red-400 text-sm mt-1">{errors.state}</p>}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Complemento
+                </label>
+                <input
+                  type="text"
+                  value={formData.complement || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, complement: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                  placeholder="Apto, sala, etc."
+                />
+              </div>
+            </div>
+
+            {/* Observations */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Observações
+              </label>
+              <textarea
+                value={formData.observations || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, observations: e.target.value }))}
+                rows={3}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                placeholder="Informações adicionais sobre o templo..."
+              />
             </div>
           </div>
 
@@ -719,6 +1024,8 @@ const Temples: React.FC = () => {
                   neighborhood: '',
                   zipCode: '',
                   state: '',
+                  complement: '',
+                  observations: '',
                   founders: [],
                   isActive: true
                 });
@@ -742,6 +1049,102 @@ const Temples: React.FC = () => {
         </form>
       </Modal>
 
+      {/* Logo Crop Modal */}
+      <Modal
+        isOpen={showLogoCropModal}
+        onClose={() => setShowLogoCropModal(false)}
+        title="Editar e Cortar Logo"
+        size="lg"
+      >
+        <div className="space-y-6">
+          <div className="text-center">
+            <p className="text-gray-300 mb-4">
+              Ajuste o quadrado para selecionar a área do logo (formato quadrado)
+            </p>
+          </div>
+
+          {originalLogo && (
+            <div className="relative bg-gray-800 rounded-lg p-4 flex justify-center">
+              <div 
+                className="relative inline-block select-none"
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <img
+                  ref={logoImageRef}
+                  src={originalLogo}
+                  alt="Original"
+                  className="max-w-full max-h-96 object-contain"
+                  style={{ maxWidth: '500px' }}
+                  onLoad={handleLogoImageLoad}
+                  draggable={false}
+                />
+                
+                {/* Crop overlay square */}
+                <div
+                  className="absolute border-2 border-red-500 bg-red-500/20 cursor-move"
+                  style={{
+                    left: `${cropData.x}px`,
+                    top: `${cropData.y}px`,
+                    width: `${cropData.size}px`,
+                    height: `${cropData.size}px`,
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, 'drag')}
+                >
+                  {/* Resize handle */}
+                  <div 
+                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 cursor-se-resize border border-white"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      handleMouseDown(e, 'resize');
+                    }}
+                  />
+                  
+                  {/* Center indicator */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Preview */}
+          <div className="text-center">
+            <p className="text-sm text-gray-400 mb-2">Pré-visualização (150x150px):</p>
+            <div className="inline-block bg-gray-800 p-2 rounded">
+              <canvas
+                ref={previewCanvasRef}
+                width="150"
+                height="150"
+                className="border border-gray-600 rounded"
+                style={{ width: '150px', height: '150px' }}
+              />
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => setShowLogoCropModal(false)}
+              className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+              <span>Cancelar</span>
+            </button>
+            <button
+              onClick={applyLogoCrop}
+              className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              <span>Salvar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Hidden canvas for final crop */}
+        <canvas ref={finalCanvasRef} style={{ display: 'none' }} />
+      </Modal>
+
       {/* Temple Details Modal */}
       {selectedTemple && !isEditing && (
         <Modal
@@ -756,11 +1159,21 @@ const Temples: React.FC = () => {
               {selectedTemple.logo && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-300 mb-2">Logo do Templo</h4>
-                  <img
-                    src={selectedTemple.logo}
-                    alt={`Logo ${selectedTemple.name}`}
-                    className="w-full h-48 object-contain bg-gray-800 rounded-lg"
-                  />
+                  <div className="relative">
+                    <img
+                      src={selectedTemple.logo}
+                      alt={`Logo ${selectedTemple.name}`}
+                      className="w-full h-48 object-contain bg-gray-800 rounded-lg"
+                    />
+                    {/* Show logo as circle in corner like in the grid */}
+                    <div className="absolute top-2 left-2 w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg">
+                      <img
+                        src={selectedTemple.logo}
+                        alt={`Logo ${selectedTemple.name}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
               
@@ -842,6 +1255,12 @@ const Temples: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">Endereço</h3>
               <p className="text-gray-300">{selectedTemple.address}</p>
+              {selectedTemple.observations && (
+                <div className="mt-3">
+                  <span className="text-gray-400 text-sm">Observações:</span>
+                  <p className="text-gray-300">{selectedTemple.observations}</p>
+                </div>
+              )}
             </div>
 
             {/* Founders */}
