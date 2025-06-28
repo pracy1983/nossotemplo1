@@ -184,6 +184,17 @@ const ManageAdmins: React.FC = () => {
     }
   };
 
+  const getRoleBadgeColor = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return 'bg-red-600/20 text-red-400 border-red-600/30';
+      case 'collaborator':
+        return 'bg-blue-600/20 text-blue-400 border-blue-600/30';
+      default:
+        return 'bg-gray-600/20 text-gray-400 border-gray-600/30';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -319,8 +330,14 @@ const ManageAdmins: React.FC = () => {
                         {student.fullName}
                       </button>
                       
+                      {/* Role Badge - Always show */}
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleBadgeColor(currentRole)}`}>
+                        {USER_ROLES[currentRole]}
+                      </div>
+                      
+                      {/* Founder Badge - Only show if founder */}
                       {student.isFounder && (
-                        <span className="text-xs bg-red-600/20 text-red-400 px-2 py-1 rounded-full">
+                        <span className="text-xs bg-red-600/20 text-red-400 px-2 py-1 rounded-full border border-red-600/30">
                           Fundador
                         </span>
                       )}
@@ -365,10 +382,6 @@ const ManageAdmins: React.FC = () => {
                       <option value="collaborator">Colaborador</option>
                       <option value="admin">Administrador</option>
                     </select>
-                  </div>
-
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium border ${ROLE_COLORS[currentRole]}`}>
-                    {USER_ROLES[currentRole]}
                   </div>
                 </div>
               </div>
@@ -438,7 +451,7 @@ const ManageAdmins: React.FC = () => {
             {/* Header with Role and Actions */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className={`px-3 py-1 rounded-full text-sm font-medium border ${ROLE_COLORS[getCurrentRole(selectedStudent)]}`}>
+                <div className={`px-3 py-1 rounded-full text-sm font-medium border ${getRoleBadgeColor(getCurrentRole(selectedStudent))}`}>
                   {USER_ROLES[getCurrentRole(selectedStudent)]}
                 </div>
                 
