@@ -36,7 +36,7 @@ export interface Event {
 }
 
 export interface Temple {
-  id: string;
+  id?: string; // Made optional to allow Supabase to generate UUID
   photo?: string;
   logo?: string; // New field for temple logo
   name: string;
@@ -51,8 +51,8 @@ export interface Temple {
   state?: string;
   founders: string[]; // Array of student IDs who are founders
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string; // Made optional
+  updatedAt?: string; // Made optional
 }
 
 export interface AttendanceRecord {

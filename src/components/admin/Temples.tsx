@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Search, Edit3, Trash2, Save, X, Upload, MapPin, Users, Calendar, Building } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { Temple, Student } from '../../types';
-import { generateId, validateEmail } from '../../utils/helpers';
+import { validateEmail } from '../../utils/helpers';
 import Modal from '../common/Modal';
 
 const Temples: React.FC = () => {
@@ -153,7 +153,6 @@ const Temples: React.FC = () => {
       const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city} - ${formData.state}, CEP: ${formData.zipCode}`;
 
       const templeData: Temple = {
-        id: formData.id || generateId(),
         photo,
         logo,
         name: templeName,
@@ -166,16 +165,19 @@ const Temples: React.FC = () => {
         zipCode: formData.zipCode!,
         state: formData.state!,
         founders: formData.founders || [],
-        isActive: formData.isActive ?? true,
-        createdAt: formData.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        isActive: formData.isActive ?? true
       };
 
+      // Only include id for updates
       if (formData.id) {
+        templeData.id = formData.id;
+        templeData.createdAt = formData.createdAt;
+        templeData.updatedAt = new Date().toISOString();
         await updateTemple(formData.id, templeData);
         setSelectedTemple(templeData);
         alert('Templo atualizado com sucesso!');
       } else {
+        // For new temples, let Supabase generate the ID
         await addTemple(templeData);
         alert('Templo cadastrado com sucesso!');
         setShowAddModal(false);
@@ -233,7 +235,7 @@ const Temples: React.FC = () => {
 
     if (confirm('Tem certeza que deseja excluir este templo?')) {
       try {
-        await deleteTemple(temple.id);
+        await deleteTemple(temple.id!);
         setSelectedTemple(null);
         alert('Templo excluído com sucesso!');
       } catch (error) {
