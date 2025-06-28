@@ -52,6 +52,9 @@ export interface Temple {
   zipCode?: string;
   state?: string;
   observations?: string; // New field for observations
+  // New date fields
+  foundedDate?: string; // Fundado em
+  inauguratedDate?: string; // Data de inauguração
   founders: string[]; // Array of student IDs who are founders
   isActive: boolean;
   createdAt?: string; // Made optional

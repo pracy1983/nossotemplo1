@@ -400,6 +400,8 @@ export const getTemples = async (): Promise<Temple[]> => {
       zipCode: temple.zip_code,
       state: temple.state,
       observations: temple.observations,
+      foundedDate: temple.founded_date,
+      inauguratedDate: temple.inaugurated_date,
       founders: parseFounders(temple.founders),
       isActive: temple.is_active,
       createdAt: temple.created_at,
@@ -429,6 +431,8 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
         zip_code: temple.zipCode,
         state: temple.state,
         observations: temple.observations,
+        founded_date: temple.foundedDate,
+        inaugurated_date: temple.inauguratedDate,
         founders: JSON.stringify(temple.founders),
         is_active: temple.isActive
       })
@@ -455,6 +459,8 @@ export const createTemple = async (temple: Temple): Promise<Temple> => {
       zipCode: data.zip_code,
       state: data.state,
       observations: data.observations,
+      foundedDate: data.founded_date,
+      inauguratedDate: data.inaugurated_date,
       founders: parseFounders(data.founders),
       isActive: data.is_active,
       createdAt: data.created_at,
@@ -482,6 +488,8 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
     if (updates.zipCode !== undefined) dbUpdates.zip_code = updates.zipCode;
     if (updates.state !== undefined) dbUpdates.state = updates.state;
     if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
+    if (updates.foundedDate !== undefined) dbUpdates.founded_date = updates.foundedDate;
+    if (updates.inauguratedDate !== undefined) dbUpdates.inaugurated_date = updates.inauguratedDate;
     if (updates.founders !== undefined) dbUpdates.founders = JSON.stringify(updates.founders);
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
@@ -513,6 +521,8 @@ export const updateTemple = async (id: string, updates: Partial<Temple>): Promis
       zipCode: data.zip_code,
       state: data.state,
       observations: data.observations,
+      foundedDate: data.founded_date,
+      inauguratedDate: data.inaugurated_date,
       founders: parseFounders(data.founders),
       isActive: data.is_active,
       createdAt: data.created_at,

@@ -3,7 +3,7 @@ import { Plus, Search, Edit3, Save, X, Upload, MapPin, Users, Calendar, Building
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Temple, Student } from '../../types';
-import { validateEmail } from '../../utils/helpers';
+import { validateEmail, formatDate } from '../../utils/helpers';
 import Modal from '../common/Modal';
 
 const Temples: React.FC = () => {
@@ -24,6 +24,8 @@ const Temples: React.FC = () => {
     state: '',
     complement: '',
     observations: '',
+    foundedDate: '',
+    inauguratedDate: '',
     founders: [],
     isActive: true
   });
@@ -210,6 +212,8 @@ const Temples: React.FC = () => {
         zipCode: formData.zipCode!,
         state: formData.state!,
         observations: formData.observations,
+        foundedDate: formData.foundedDate,
+        inauguratedDate: formData.inauguratedDate,
         founders: formData.founders || [],
         isActive: formData.isActive ?? true
       };
@@ -240,6 +244,8 @@ const Temples: React.FC = () => {
         state: '',
         complement: '',
         observations: '',
+        foundedDate: '',
+        inauguratedDate: '',
         founders: [],
         isActive: true
       });
@@ -270,7 +276,9 @@ const Temples: React.FC = () => {
       zipCode: temple.zipCode || '',
       state: temple.state || '',
       complement: temple.complement || '',
-      observations: temple.observations || ''
+      observations: temple.observations || '',
+      foundedDate: temple.foundedDate || '',
+      inauguratedDate: temple.inauguratedDate || ''
     });
     setPhoto(temple.photo || '');
     setLogo(temple.logo || '');
@@ -692,6 +700,8 @@ const Temples: React.FC = () => {
             state: '',
             complement: '',
             observations: '',
+            foundedDate: '',
+            inauguratedDate: '',
             founders: [],
             isActive: true
           });
@@ -804,6 +814,33 @@ const Temples: React.FC = () => {
                 placeholder="Ex: São Paulo"
               />
               {errors.city && <p className="text-red-400 text-sm mt-1">{errors.city}</p>}
+            </div>
+          </div>
+
+          {/* Date Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Fundado em
+              </label>
+              <input
+                type="date"
+                value={formData.foundedDate || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, foundedDate: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Data de Inauguração
+              </label>
+              <input
+                type="date"
+                value={formData.inauguratedDate || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, inauguratedDate: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-red-600 focus:ring-1 focus:ring-red-600"
+              />
             </div>
           </div>
 
@@ -998,6 +1035,8 @@ const Temples: React.FC = () => {
                   state: '',
                   complement: '',
                   observations: '',
+                  foundedDate: '',
+                  inauguratedDate: '',
                   founders: [],
                   isActive: true
                 });
@@ -1122,44 +1161,33 @@ const Temples: React.FC = () => {
         <Modal
           isOpen={!!selectedTemple}
           onClose={() => setSelectedTemple(null)}
-          title="Detalhes do Templo"
-          size="lg"
-        >
-          <div className="space-y-6">
-            {/* Temple Images */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          title={
+            <div className="flex items-center space-x-3">
               {selectedTemple.logo && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Logo do Templo</h4>
-                  <div className="relative">
-                    <img
-                      src={selectedTemple.logo}
-                      alt={`Logo ${selectedTemple.name}`}
-                      className="w-full h-48 object-contain bg-gray-800 rounded-lg"
-                    />
-                    {/* Show logo as circle in corner like in the grid */}
-                    <div className="absolute top-2 left-2 w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg">
-                      <img
-                        src={selectedTemple.logo}
-                        alt={`Logo ${selectedTemple.name}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {selectedTemple.photo && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Foto da Fachada</h4>
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-600">
                   <img
-                    src={selectedTemple.photo}
-                    alt={`Fachada ${selectedTemple.name}`}
-                    className="w-full h-48 object-cover rounded-lg"
+                    src={selectedTemple.logo}
+                    alt={`Logo ${selectedTemple.name}`}
+                    className="w-full h-full object-cover"
                   />
                 </div>
               )}
+              <span>Detalhes do Templo</span>
             </div>
+          }
+          size="lg"
+        >
+          <div className="space-y-6">
+            {/* Temple Photo - Full width */}
+            {selectedTemple.photo && (
+              <div>
+                <img
+                  src={selectedTemple.photo}
+                  alt={`Fachada ${selectedTemple.name}`}
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+              </div>
+            )}
 
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1190,6 +1218,18 @@ const Temples: React.FC = () => {
                       {selectedTemple.isActive ? 'Ativo' : 'Inativo'}
                     </div>
                   </div>
+                  {selectedTemple.foundedDate && (
+                    <div>
+                      <span className="text-gray-400 text-sm">Fundado em:</span>
+                      <p className="text-white">{formatDate(selectedTemple.foundedDate)}</p>
+                    </div>
+                  )}
+                  {selectedTemple.inauguratedDate && (
+                    <div>
+                      <span className="text-gray-400 text-sm">Data de Inauguração:</span>
+                      <p className="text-white">{formatDate(selectedTemple.inauguratedDate)}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
